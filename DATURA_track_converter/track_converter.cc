@@ -10,12 +10,16 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <iomanip>
+
 // #include <dirent.h>
 //ROOT
 #include <TFile.h>
 #include <TTree.h>
 #include <TGraphErrors.h>
 #include <TFitResultPtr.h>
+#include <TGraph.h>
+#include <TMultiGraph.h>
 #include <TFitResult.h>
 #include <TH1D.h>
 #include <TH2D.h>
@@ -27,11 +31,6 @@
 #include <TMatrixT.h>
 
 const double PI  =3.141592653589793238462;
-
-// double get_sigma(int position, TFitResultPtr res) 
-// {
-//     return TMath::Sqrt(res.Get()->ParError(0)*res.Get()->ParError(0)+res.Get()->ParError(1)*res.Get()->ParError(1)*position*position+2*(res.Get()->GetCovarianceMatrix()(0,1)*position));
-// }
 
 struct event{
     TFile* hitfile;
@@ -352,9 +351,12 @@ void write_tracks(std::string filename, double *errorsX, double *errorsY, std::s
 	}
 }
 
-void track_converter(std::string filename, int exclude=5, int nsteps=5)
+void track_converter(int runnumber, int exclude=5, int nsteps=3)
 {
-	// std::string filename = "run000076-fitter.root";
+	std::stringstream filestream;
+	filestream << "run" << setfill('0') << setw(6) << runnumber << "-fitter.root";
+	std::string filename = filestream.str();
+	
 	std::set<int> excluded_planes;
 	excluded_planes.insert(exclude);
 	
@@ -364,10 +366,60 @@ void track_converter(std::string filename, int exclude=5, int nsteps=5)
 	
 	std::cout << "Computing Resolution of individual Telescope Planes in " << nsteps << " iterations!" << std::endl;
 	
+	//initialize std::vector of TGraph* for visualization of convergence
+	std::vector<TGraph*> xvector;
+	std::vector<TGraph*> yvector;
+	
+	for (int plane=0 ; plane<6 ; plane++)
+	{
+		std::stringstream xstream;
+		std::stringstream ystream;
+		
+		xstream << "Resolution plane " << plane;
+		ystream << "Resolution plane " << plane;
+		
+		TGraph* dummygraphx = new TGraph();
+		TGraph* dummygraphy = new TGraph();
+		
+		dummygraphx->SetTitle(xstream.str().c_str());
+		dummygraphy->SetTitle(ystream.str().c_str());
+		
+		dummygraphx->SetLineColor(1);
+		dummygraphy->SetLineColor(2);
+		
+		dummygraphx->GetYaxis()->SetRangeUser(0.001,0.05);
+		dummygraphy->GetYaxis()->SetRangeUser(0.001,0.05);
+		
+		xvector.push_back(dummygraphx);
+		yvector.push_back(dummygraphy);
+	}
+	
 	for (int iterations=0 ; iterations<nsteps ; iterations++)
 	{
 		std::cout << "Running iteration " << iterations << std::endl;
-		get_track_uncert(filename, errorsX, errorsY);	
+		get_track_uncert(filename, errorsX, errorsY);
+		
+		if (iterations != 0)
+		{
+			for (int plane=0 ; plane<6; plane++)
+			{
+				xvector.at(plane)->SetPoint(xvector.at(plane)->GetN(),iterations,errorsX[plane]);
+				yvector.at(plane)->SetPoint(yvector.at(plane)->GetN(),iterations,errorsY[plane]);
+			}
+		}	
+	}
+	
+	TCanvas* iterationcanvas = new TCanvas("iterationcanvas","iterationcanvas");
+	iterationcanvas->Divide(3,2);
+	for (int plane=0 ; plane<6 ; plane++)
+	{
+		iterationcanvas->cd(plane+1);
+		TMultiGraph* multigraph = new TMultiGraph("","Resolution vs. Iteration #;Iteration #;Resolution [mm]");
+		multigraph->Add(xvector.at(plane),"PL");
+		multigraph->Add(yvector.at(plane),"PL");
+		// xvector.at(plane)->Draw("APL");
+// 		yvector.at(plane)->Draw("PL same");
+		multigraph->Draw("A");
 	}
 	
 	//now i have the individual sensor plane resolutions (that are the error of the measurement) to assign to the measured hits -> TGraphErrors -> Fit pol1 -> extract parameters and parameter errors -> write to tree
