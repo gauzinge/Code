@@ -207,7 +207,7 @@ void get_track_uncert(std::string filename, double *errorsX, double *errorsY)
 			//fill them with hits from all planes but the excluded
 			for (int plane=0 ; plane<6 ; plane++)
 			{
-				if (plane!=excluded) //this is a valid plane, eventually sanity check
+				if (plane!=excluded && myevent._x[plane]!=-999 && myevent._y[plane]!=-999 && myevent._z[plane]!=-999) //this is a valid plane
 				{
 					int npx = grx->GetN();
 					int npy = gry->GetN();
@@ -218,7 +218,7 @@ void get_track_uncert(std::string filename, double *errorsX, double *errorsY)
 					gry->SetPoint(npy,myevent._z[plane],myevent._y[plane]);
 					gry->SetPointError(npy,0,errorsY[plane]);
 				}
-				else
+				else if (plane==excluded && myevent._x[plane]!=-999 && myevent._y[plane]!=-999 && myevent._z[plane]!=-999)
 				{
 					residualX=myevent._x[plane];
 					residualY=myevent._y[plane];
@@ -266,7 +266,7 @@ void get_track_uncert(std::string filename, double *errorsX, double *errorsY)
 	}
 }
 
-void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY, std::set<int> excluded_planes)
+void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY)
 {
 	//TGraphErrors for Fit!
 	TGraphErrors* grx = new TGraphErrors();
@@ -275,7 +275,8 @@ void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY, s
 	//fill them with hits from all planes
 	for (int plane=0 ; plane<6 ; plane++)
 	{
-		if (excluded_planes.find(plane) == excluded_planes.end())
+		//sanity check, planes not included in the tracking are excluded
+		if (myevent._x[plane]!=-999 && myevent._y[plane]!=-999 && myevent._z[plane]!=-999) 
 		{
 			int npx = grx->GetN();
 			int npy = gry->GetN();
@@ -311,7 +312,7 @@ void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY, s
 }
 
 
-void write_tracks(std::string filename, double *errorsX, double *errorsY, std::set<int> excluded_planes)
+void write_tracks(std::string filename, double *errorsX, double *errorsY)
 {	
 	track mytrack;
 	//create track file and tree
@@ -345,7 +346,7 @@ void write_tracks(std::string filename, double *errorsX, double *errorsY, std::s
 			for (int events=0; events<myevent.get_n_entries(); events++)
 			{
 				myevent.get_entry(events);
-				fit_hits(myevent, mytrack, errorsX, errorsY, excluded_planes);
+				fit_hits(myevent, mytrack, errorsX, errorsY);
 				tracktree->Fill();
 			}
 			myevent.hitfile->Close();
@@ -357,14 +358,11 @@ void write_tracks(std::string filename, double *errorsX, double *errorsY, std::s
 	}
 }
 
-void track_converter(int runnumber, int exclude=5, int nsteps=3)
+void track_converter(int runnumber, int nsteps=3)
 {
 	std::stringstream filestream;
 	filestream << "run" << setfill('0') << setw(6) << runnumber << "-fitter.root";
 	std::string filename = filestream.str();
-	
-	std::set<int> excluded_planes;
-	excluded_planes.insert(exclude);
 	
 	//initial measurement errors, will be overwritten in any iteration
 	double errorsX[6]={0.01,0.01,0.01,0.01,0.01,0.01};
@@ -430,10 +428,8 @@ void track_converter(int runnumber, int exclude=5, int nsteps=3)
 	
 	//now i have the individual sensor plane resolutions (that are the error of the measurement) to assign to the measured hits -> TGraphErrors -> Fit pol1 -> extract parameters and parameter errors -> write to tree
 	
-	std::cout << "Parametrizing Tracks with planes ";
-	for (std::set<int>::iterator it = excluded_planes.begin() ; it!=excluded_planes.end() ; it++) std::cout << *it << " ";
-	std::cout << " excluded!" << std::endl;
+	std::cout << "Parametrizing Tracks!" << std::endl;
 	
-	write_tracks(filename, errorsX, errorsY, excluded_planes);
+	write_tracks(filename, errorsX, errorsY);
 }
 
