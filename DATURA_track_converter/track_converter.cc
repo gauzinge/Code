@@ -37,6 +37,7 @@ struct event{
     TTree* hittree;
 	int _EvtNr;
 	int _RunNr;
+	double _timestamp;
 	
 	double _x[6];
 	double _y[6];
@@ -64,6 +65,9 @@ void event::readtree(std::string filename)
 			TBranch* runbranch = 0;
 			hittree->SetBranchAddress("RunNr",&_RunNr,&runbranch);
 			
+			TBranch* timestampbranch = 0;
+			hittree->SetBranchAddress("Timestamp",&_timestamp,&timestampbranch);
+				
 			TBranch* x_0_branch = 0;
 			TBranch* y_0_branch = 0;
 			TBranch* z_0_branch = 0;
@@ -120,6 +124,7 @@ void event::get_entry(int i_entry){
 struct track{
 	int EvtNr;
 	int RunNr;
+	double timestamp;
 
 	// Track Parameters a+b*z
 	double aX;
@@ -290,7 +295,7 @@ void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY, s
 	//set members
 	mytrack.EvtNr = myevent._EvtNr;
 	mytrack.RunNr = myevent._RunNr;
-	
+	mytrack.timestamp = myevent._timestamp;
 	// Track Parameters a+b*z
 	mytrack.aX = resx.Get()->Parameter(0);
 	mytrack.bX = resx.Get()->Parameter(1);
@@ -322,6 +327,7 @@ void write_tracks(std::string filename, double *errorsX, double *errorsY, std::s
 			//define branches and point them to members of mytrack
 			tracktree->Branch("EvtNr",&mytrack.EvtNr);
 			tracktree->Branch("RunNr",&mytrack.RunNr);
+			tracktree->Branch("TimeSt", &mytrack.timestamp);
 			tracktree->Branch("aX",&mytrack.aX); //intercept x
 			tracktree->Branch("bX",&mytrack.bX); //slope x
 			tracktree->Branch("sigma_aX",&mytrack.sigma_aX); //error ax
@@ -430,3 +436,4 @@ void track_converter(int runnumber, int exclude=5, int nsteps=3)
 	
 	write_tracks(filename, errorsX, errorsY, excluded_planes);
 }
+
