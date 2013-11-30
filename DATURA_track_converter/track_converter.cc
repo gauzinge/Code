@@ -37,7 +37,7 @@ struct event{
     TTree* hittree;
 	int _EvtNr;
 	int _RunNr;
-	double _timestamp;
+	long _timestamp;
 	
 	double _x[6];
 	double _y[6];
@@ -124,7 +124,7 @@ void event::get_entry(int i_entry){
 struct track{
 	int EvtNr;
 	int RunNr;
-	double timestamp;
+	long timestamp;
 
 	// Track Parameters a+b*z
 	double aX;
@@ -138,15 +138,6 @@ struct track{
 	double sigma_bX;
 	double sigma_bY;
 };
-
-double get_fitrange(TH1D* h) {
-    double maxval = h->GetMaximum();
-    double firstbin = h->GetBinCenter(h->FindFirstBinAbove(maxval/2));
-    double lastbin = h->GetBinCenter(h->FindLastBinAbove(maxval/2));
-    double fwhm = (lastbin-firstbin);
-    return (2*fwhm/2);
-}
-
 
 void get_track_uncert(std::string filename, double *errorsX, double *errorsY)
 {	
@@ -297,6 +288,7 @@ void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY)
 	mytrack.EvtNr = myevent._EvtNr;
 	mytrack.RunNr = myevent._RunNr;
 	mytrack.timestamp = myevent._timestamp;
+	
 	// Track Parameters a+b*z
 	mytrack.aX = resx.Get()->Parameter(0);
 	mytrack.bX = resx.Get()->Parameter(1);
@@ -315,6 +307,7 @@ void fit_hits(event myevent, track &mytrack, double *errorsX, double *errorsY)
 void write_tracks(std::string filename, double *errorsX, double *errorsY)
 {	
 	track mytrack;
+	
 	//create track file and tree
 	std::string trackfilename = filename.substr(0,9) + "_tracks.root";
 	TFile* trackfile = TFile::Open(trackfilename.c_str(),"RECREATE");
@@ -428,7 +421,7 @@ void track_converter(int runnumber, int nsteps=3)
 	
 	//now i have the individual sensor plane resolutions (that are the error of the measurement) to assign to the measured hits -> TGraphErrors -> Fit pol1 -> extract parameters and parameter errors -> write to tree
 	
-	std::cout << "Parametrizing Tracks!" << std::endl;
+	std::cout << "Parametrizing tracks!" << std::endl;
 	
 	write_tracks(filename, errorsX, errorsY);
 }
