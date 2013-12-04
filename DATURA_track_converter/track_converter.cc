@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <inttypes.h>
 
 // #include <dirent.h>
 //ROOT
@@ -37,7 +38,7 @@ struct event{
     TTree* hittree;
 	int _EvtNr;
 	int _RunNr;
-	long _timestamp;
+	unsigned long long _timestamp;
 	
 	double _x[6];
 	double _y[6];
@@ -47,6 +48,24 @@ struct event{
     void get_entry(int);
 };
 
+struct track{
+	int EvtNr;
+	int RunNr;
+	unsigned long long timestamp;
+
+	// Track Parameters a+b*z
+	double aX;
+	double aY;
+	double bX;
+	double bY;
+
+	// Track Parameter Errors propagate as sigma(z)=sqrt(sigma_a^2 + sigma_b^2*z^2 + 2*sigma_ab) for both coordinates yields the track uncertanty sigma_x,y(z)
+	double sigma_aX;
+	double sigma_aY;
+	double sigma_bX;
+	double sigma_bY;
+};
+
 void event::readtree(std::string filename)
 {
 	//first read the tree
@@ -54,8 +73,7 @@ void event::readtree(std::string filename)
 	if (!hitfile) std::cerr << "Could not open Hit File!" << std::endl;
 	else
 	{
-		hitfile->cd("MyEUTelFitTuple");
-		this->hittree = (TTree*)gDirectory->Get("EUFit");
+		this->hittree = (TTree*)gDirectory->Get("Hits");
 		if (!hittree) std::cerr << "Could not open Hit Tree!" << std::endl;
 		else 
 		{
@@ -120,24 +138,6 @@ int event::get_n_entries() {
 void event::get_entry(int i_entry){
     hittree->GetEntry(i_entry);
 }
-
-struct track{
-	int EvtNr;
-	int RunNr;
-	long timestamp;
-
-	// Track Parameters a+b*z
-	double aX;
-	double aY;
-	double bX;
-	double bY;
-
-	// Track Parameter Errors propagate as sigma(z)=sqrt(sigma_a^2 + sigma_b^2*z^2 + 2*sigma_ab) for both coordinates yields the track uncertanty sigma_x,y(z)
-	double sigma_aX;
-	double sigma_aY;
-	double sigma_bX;
-	double sigma_bY;
-};
 
 void get_track_uncert(std::string filename, double *errorsX, double *errorsY)
 {	
@@ -241,7 +241,7 @@ void get_track_uncert(std::string filename, double *errorsX, double *errorsY)
 	for (int i=0 ; i<6 ; i++)
 	{
 		rescanvas->cd(i+1);
-		residualhisto.at(i)->Draw();
+		residualhisto.at(i)->Draw("colz");
 		
 		//for every plane, compute the intrinsic resolution which is 
 		//sqrt(sigma_residuals^2-sigma_track^2)
@@ -321,7 +321,7 @@ void write_tracks(std::string filename, double *errorsX, double *errorsY)
 			//define branches and point them to members of mytrack
 			tracktree->Branch("EvtNr",&mytrack.EvtNr);
 			tracktree->Branch("RunNr",&mytrack.RunNr);
-			tracktree->Branch("TimeSt", &mytrack.timestamp);
+			tracktree->Branch("TimeSt", &mytrack.timestamp,"Timest/l");
 			tracktree->Branch("aX",&mytrack.aX); //intercept x
 			tracktree->Branch("bX",&mytrack.bX); //slope x
 			tracktree->Branch("sigma_aX",&mytrack.sigma_aX); //error ax
@@ -354,7 +354,7 @@ void write_tracks(std::string filename, double *errorsX, double *errorsY)
 void track_converter(int runnumber, int nsteps=3)
 {
 	std::stringstream filestream;
-	filestream << "run" << setfill('0') << setw(6) << runnumber << "-fitter.root";
+	filestream << "run" << setfill('0') << setw(6) << runnumber << "-hits.root";
 	std::string filename = filestream.str();
 	
 	//initial measurement errors, will be overwritten in any iteration
@@ -425,4 +425,3 @@ void track_converter(int runnumber, int nsteps=3)
 	
 	write_tracks(filename, errorsX, errorsY);
 }
-
